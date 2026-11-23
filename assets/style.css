@@ -85,3 +85,11 @@ h1,h2,h3,h4{font-weight:400;line-height:1.25;color:#111}
   .profile,.feature,.footer-grid,.stats-grid{grid-template-columns:1fr}
   .feature.reverse img{order:0}
 }
+/* Bannière de consentement */
+#pa-consent{position:fixed;left:1rem;right:1rem;bottom:1rem;max-width:720px;margin:0 auto;background:#222;color:#fff;padding:1rem 1.25rem;display:flex;gap:1rem;align-items:center;justify-content:space-between;flex-wrap:wrap;z-index:1000;box-shadow:0 6px 24px rgba(0,0,0,.35);border-top:4px solid var(--jaune)}
+#pa-consent p{margin:0;flex:1 1 320px;font-size:.95rem;line-height:1.5}
+#pa-consent div{display:flex;gap:.5rem}
+#pa-consent button{font:inherit;padding:.55rem 1.1rem;border:1px solid var(--jaune);cursor:pointer}
+#pa-consent .pa-ok{background:var(--jaune);color:#111}
+#pa-consent .pa-no{background:transparent;color:#fff;border-color:#888}
+.pa-manage{color:inherit}
