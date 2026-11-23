@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configurer un agent Copilot Studio sur Power BI | Premium Analytique</title>
+<meta name="description" content="Configurer un agent Copilot Studio sur Power BI">
+<meta property="og:title" content="Configurer un agent Copilot Studio sur Power BI | Premium Analytique">
+<meta property="og:description" content="Configurer un agent Copilot Studio sur Power BI">
+<meta property="og:image" content="https://www.premiumanalytique.com/images/01b04e_8c8111a66de246eeb277915b6c9c769e.png">
+<link rel="canonical" href="https://www.premiumanalytique.com/post/configurer-un-agent-copilot-studio-sur-power-bi/">
+<link rel="alternate" hreflang="en" href="https://www.premiumanalytique.com/en/post/setting-up-a-copilot-studio-agent-on-power-bi/">
+<link rel="icon" href="../../images/c6f7b0_2be19ac49b4d40dc803bb2cca267f3da.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/style.css">
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../">
+    <img src="../../images/logo-icone.png" alt="" width="31" height="44">
+    <span><strong>Premium Analytique</strong><small>Experts Power BI et intelligence d'affaires</small></span>
+  </a>
+  <input type="checkbox" id="menu-toggle" hidden><label for="menu-toggle" class="burger" aria-label="Menu">☰</label>
+  <nav class="main-nav"><a href="../../">Accueil</a><a href="../../a-propos/">À propos</a><a href="../../blog/" class=active>Blogue</a><a class="lang" href="../../en/post/setting-up-a-copilot-studio-agent-on-power-bi/" hreflang="en">EN</a></nav>
+  <a class="phone" href="tel:+15145547949">514 554-7949</a>
+</header>
+<main>
+<article class="post wrap narrow">
+  <p><a href="../../blog/">← Retour au blogue</a></p>
+  <h1>Configurer un agent Copilot Studio sur Power BI</h1>
+  <p class="meta">Joel Gagnon · 10 nov. 2026 · 5 min de lecture</p>
+  <p>Un agent Copilot Studio branché sur un modèle sémantique Power BI peut répondre en quelques secondes à « Quelles sont nos ventes du mois dernier par division, vs l'an dernier ? ». Mais la qualité de sa réponse dépend de deux choses : le modèle qu'on lui donne et la façon dont on le configure.</p>
+<p>J'ai récemment monté un agent de ce type pour un distributeur. Il interroge le modèle en DAX, respecte la sécurité par rôle (RLS) et propose le bon rapport Power BI à la fin de chaque réponse. Voici, paramètre par paramètre, ce que j'ai configuré et pourquoi.</p>
+<img src="../../images/01b04e_8c8111a66de246eeb277915b6c9c769e.png" alt="">
+<h2>Étape 0 : un modèle sémantique pensé pour l'IA</h2>
+<p>Un agent n'est jamais meilleur que le modèle qu'il interroge. Plutôt que de brancher le modèle principal, j'ai créé une copie dédiée à l'IA, plus simple et mieux documentée.</p>
+<ul>
+<li><p><strong>Des descriptions partout.</strong> Chaque table, colonne et mesure visible a une description en langage clair : ce qu'elle calcule, son signe (les coûts sont négatifs) et quand l'utiliser.</p></li>
+<li><p><strong>Un dictionnaire interrogeable.</strong> Une table calculée reprend automatiquement les descriptions du modèle (fonctions INFO.VIEW). Quand l'agent hésite, il cherche dans ce dictionnaire avant d'écrire sa requête, au lieu d'inventer un nom de mesure.</p></li>
+<li><p><strong>Un sélecteur de période.</strong> Les mesures TY, LY, Var $ et Var % suivent un scénario choisi (Year to Date, Month Last Completed, Rolling 12 Months…). L'agent n'a pas à écrire de logique de dates : il choisit un scénario par son nom.</p></li>
+<li><p><strong>Des colonnes techniques masquées.</strong> Les clés et les colonnes numériques brutes sont cachées, pour que l'agent passe par les mesures et ne fasse jamais de SUM sur une table de faits.</p></li>
+<li><p><strong>Une RLS qui ne ment pas.</strong> Les vendeurs ne voient pas les coûts. Sans précaution, la marge brute leur aurait affiché les ventes seules. La mesure vérifie donc si des lignes de coût sont visibles et retourne vide sinon. L'agent sait alors dire « le coût n'est pas disponible avec vos accès ».</p></li>
+</ul>
+<p>La RLS reste appliquée quand l'agent interroge le modèle : chaque utilisateur ne voit que ses données, sans rien ajouter dans Copilot Studio.</p>
+<h2>Les paramètres de l'agent, un par un</h2>
+<h3>Modèle</h3>
+<p>C'est le modèle de langage qui raisonne et écrit le DAX. J'ai choisi le plus performant disponible. Générer une requête DAX correcte, avec les bons noms de mesures et un filtre de période, demande plus de rigueur qu'un simple résumé de texte. Un modèle plus léger fait plus d'erreurs de syntaxe.</p>
+<h3>Instructions</h3>
+<p>C'est le cœur de l'agent, et la limite est de 8 000 caractères. Chaque phrase doit donc mériter sa place. Les miennes couvrent six sujets :</p>
+<ol>
+<li><p><strong>Le rôle.</strong> « Tu es l'analyste des ventes. Tu ne réponds qu'avec des chiffres issus d'une requête. N'invente jamais un chiffre. »</p></li>
+<li><p><strong>La méthode.</strong> Identifier la mesure, la période, le regroupement et les filtres. En cas de doute, chercher dans le dictionnaire. Écrire une seule requête, la tester, puis seulement en envoyer d'autres.</p></li>
+<li><p><strong>Le format exact de l'appel à l'outil.</strong> La moitié des erreurs venaient d'un JSON mal formé (une accolade de trop), pas du DAX. Je décris le format attendu et le message d'erreur qui le trahit.</p></li>
+<li><p><strong>Les périodes.</strong> La liste exacte des scénarios, la traduction des expressions courantes (« le mois dernier » = Month Last Completed) et la période par défaut.</p></li>
+<li><p><strong>Les règles métier.</strong> Les coûts sont négatifs, ce qu'est un client, ce que veut dire « Est » et « Ouest », toujours vérifier les valeurs d'une colonne avant de filtrer, maximum 25 lignes.</p></li>
+<li><p><strong>Le style de réponse.</strong> Le chiffre d'abord, les dates exactes de chaque période (« du 1er au 31 octobre 2026 vs du 1er au 31 octobre 2025 », jamais seulement « YTD »), un tableau court au-delà de trois lignes et une seule suggestion de suite.</p></li>
+</ol>
+<p>J'y ajoute trois ou quatre requêtes DAX modèles. Un exemple concret vaut mieux que trois paragraphes d'explication.</p>
+<h3>Canaux</h3>
+<p>Là où les utilisateurs parlent à l'agent. J'ai activé <strong>Teams + Microsoft 365</strong> : les vendeurs posent leurs questions dans Teams, sans ouvrir Power BI. L'agent répond avec l'identité de l'utilisateur, donc la RLS s'applique.</p>
+<h3>Outils</h3>
+<p>Les actions que l'agent peut exécuter.</p>
+<ul>
+<li><p><strong>La requête sur le modèle sémantique.</strong> C'est l'outil principal : il exécute une requête DAX (EVALUATE …) sur le modèle publié et retourne le résultat. Je l'ai nommé clairement (« Query sales model ») pour que l'agent sache quand l'utiliser.</p></li>
+<li><p><strong>Work IQ.</strong> Il donne accès au contexte Microsoft 365 de l'utilisateur (courriels, fichiers, rencontres). Utile pour préparer une visite client, mais les instructions interdisent de l'utiliser pour des chiffres d'affaires : seuls les chiffres du modèle comptent.</p></li>
+</ul>
+<h3>Knowledge</h3>
+<p>Les sources de référence que l'agent consulte pour du contexte, pas pour des chiffres.</p>
+<ul>
+<li><p><strong>Le site web de l'entreprise</strong>, pour décrire les produits et les marques.</p></li>
+<li><p><strong>Un fichier Excel du catalogue des rapports Power BI</strong> : chaque page de chaque rapport, sa description et son lien dans l'app. Les instructions demandent à l'agent de suggérer la bonne page à la fin d'une réponse, en prenant le lien dans ce fichier seulement. L'utilisateur passe ainsi de la réponse rapide à l'analyse complète en un clic. Retirez du fichier les pages masquées et les rapports techniques, pour que l'agent ne les propose jamais.</p></li>
+</ul>
+<h3>Skills</h3>
+<p>Les skills sont des instructions spécialisées que l'agent charge seulement quand la question s'y prête. Elles contournent la limite des 8 000 caractères : les instructions principales restent générales, et chaque cas d'usage a son propre fichier, avec un nom et une description qui disent quand l'utiliser.</p>
+<p>Exemples : opportunités de vente par client, préparation d'une visite, revue d'un fournisseur, stock dormant, réapprovisionnement, explication d'un écart (prix, volume, mix), export Excel, graphiques et présentation. Chaque skill a des valeurs par défaut explicites (180 jours sans vente, 1 000 $ minimum…) que les utilisateurs peuvent changer dans leur question.</p>
+<p>Quand une partie des données est en cours de validation, je la désactive dans la skill plutôt que de laisser l'agent répondre avec des chiffres douteux.</p>
+<h3>Agents connectés</h3>
+<p>Ce paramètre permet de déléguer une partie du travail à d'autres agents (par exemple, un agent RH ou un agent finance). Je ne l'utilise pas encore. Un seul agent bien instruit suffit pour commencer, et chaque agent ajouté est un endroit de plus où une réponse peut dérailler.</p>
+<h2>Tester, évaluer, publier</h2>
+<p>Les onglets du haut de Copilot Studio suivent le cycle de vie de l'agent.</p>
+<ul>
+<li><p><strong>Preview.</strong> Pour tester une question pendant qu'on ajuste les instructions. Je vérifie chaque fois la requête DAX générée, pas seulement la réponse : un chiffre plausible peut venir d'une mauvaise mesure.</p></li>
+<li><p><strong>Evaluate.</strong> Pour rejouer une liste de questions types après chaque changement. Je compare les réponses avec les chiffres d'un rapport Power BI. C'est la seule façon de savoir si une modification des instructions a brisé autre chose.</p></li>
+<li><p><strong>Publish.</strong> Pour rendre la nouvelle version disponible dans les canaux. Tant qu'on ne publie pas, les utilisateurs gardent l'ancienne.</p></li>
+<li><p><strong>Monitor.</strong> Pour voir les vraies questions posées et les réponses en échec. C'est la meilleure source d'idées pour la prochaine skill.</p></li>
+</ul>
+<p>Je teste aussi avec un compte de chaque rôle de sécurité. Un vendeur doit voir ses ventes, mais aucune marge.</p>
+<h2>Ce que j'en retiens</h2>
+<ol>
+<li><p><strong>Le modèle sémantique fait 80 % du travail.</strong> Des descriptions claires et un dictionnaire valent plus que n'importe quelle instruction.</p></li>
+<li><p><strong>Chaque caractère compte.</strong> Avec 8 000 caractères, on garde dans les instructions ce qui sert à chaque question et on déplace le reste dans des skills.</p></li>
+<li><p><strong>Les dates exactes bâtissent la confiance.</strong> Un utilisateur qui voit « du 1er au 31 octobre 2026 vs 2025 » peut vérifier. « YTD » seul laisse un doute.</p></li>
+<li><p><strong>L'agent ne remplace pas les rapports, il y mène.</strong> La réponse rapide dans Teams, puis le lien vers la page Power BI pour creuser.</p></li>
+<li><p><strong>Dire « je ne sais pas » est une fonctionnalité.</strong> Un agent qui avoue qu'une donnée n'est pas disponible vaut mieux qu'un agent qui improvise.</p></li>
+</ol>
+<p>Et vous, avez-vous déjà branché un agent sur vos modèles Power BI ? Quel paramètre vous a donné le plus de fil à retordre ?</p>
+<p class="tags">#PowerBI #CopilotStudio #MicrosoftFabric #DAX #IA</p>
+
+</article>
+</main>
+<footer class="site-footer">
+  <div class="wrap footer-grid">
+    <div><h4>Contact</h4>
+      <p><a href="tel:+15145547949">514 554-7949</a><br><a href="mailto:joel@premiumanalytique.com">joel@premiumanalytique.com</a></p></div>
+    <div><h4>Premium Analytique - Joel Gagnon</h4>
+      <p>7426 rue de la Roche<br>Montréal (Québec) H2R 2T5, Canada</p></div>
+    <div><h4>LinkedIn</h4><p><a href="https://www.linkedin.com/in/joelgagnon/">linkedin.com/in/joelgagnon</a></p></div>
+  </div>
+  <p class="copy">© <span id="y">2026</span> Premium Analytique. Tous droits réservés.</p>
+</footer>
+<script>document.getElementById('y').textContent=new Date().getFullYear()</script>
+</body>
+</html>
